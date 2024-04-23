@@ -106,19 +106,40 @@ services:
   ddns:
     # This provides a ddclient dynamic dns updating cron which is as simple as running it
     # and editing the ddns/config/ddclient.conf file
-    # https://github.com/linuxserver/docker-ddclient
-    image: linuxserver/ddclient
+    # https://github.com/favonia/cloudflare-ddns
+    image: favonia/cloudflare-ddns:latest
+    depends_on:
+     - bitwarden
+    network_mode: "host"
+    # This makes IPv6 easier; see below
     restart: always
-    container_name: ddns
-    <<: *default-logging
-    depends_on: 
-    - bitwarden
-    volumes:
-    - ${PWD}/ddns:/config
+    # Restart the updater after reboot
+    cap_add:
+      - SETUID
+        # Capability to change user ID; needed for using PUID
+      - SETGID
+        # Capability to change group ID; needed for using PGID
+    cap_drop:
+      - all
+      # Drop all other capabilities
+    read_only: true
+    # Make the container filesystem read-only
+    security_opt:
+      - no-new-privileges:true
+        # Another protection to restrict superuser privileges
     environment:
-    - PUID
-    - PGID
-    - TZ
+      - PUID=1000
+        # Run the updater with user ID 1000
+      - PGID=1000
+        # Run the updater with group ID 1000
+      - CF_API_TOKEN=${CF_API_TOKEN}
+        # Your Cloudflare API token
+      - DOMAINS=${DOMAIN}
+        # Your domains (separated by commas)
+      - PROXIED=true
+        # Tell Cloudflare to cache webpages and hide your IP
+      - IP6_PROVIDER=none
+        # Disable IPV6
 
 
   fail2ban:
